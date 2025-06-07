@@ -8,8 +8,7 @@ __pycache__/
 *.pyd
 *.pyw
 *.pyz
+test_eval/
 .ipynb_checkpoints/
-cosmmnist.ipynb
 earthformer-minimal/
 gg.png
-train_cosmmnist.py
