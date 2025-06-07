@@ -124,9 +124,10 @@ class MetricListEvaluator():
     - SSIM
     - PSNR    
     '''
-    def __init__(self, metric_list):        
+    def __init__(self, metric_list, out_len):        
         self.metric_holder = {}
         self.batch_count = 0
+        self.out_len = out_len
         for metric_name in metric_list:
             threshold = ''
             if '-' in metric_name:
@@ -145,25 +146,29 @@ class MetricListEvaluator():
         '''        
         if metric_name in ['csi', 'pod', 'far']:
             # use tfpn instead
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold']}] # tp, 
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold']}] # tp, 
         elif metric_name == 'csi_4':
             # tfpn with radius (pooling)
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 4}]
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 4}]
         elif metric_name == 'csi_16':
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 16}]
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 16}]
         else:
             # directly convert the string name into function call
-            return [eval(metric_name), 0, {}]
+            return [eval(metric_name), np.zeros(self.out_len), {}]
 
     def eval(self, y_pred, y):
         self.batch_count += 1
+        # print(self.metric_holder.items())
         for _, metric in self.metric_holder.items():
-            temp = metric[0](y_pred, y, **metric[-1])      
-            if temp is list:
-                temp = np.array(temp)
-            elif type(temp) == torch.Tensor:
-                temp = temp.detach().cpu().numpy()
-            metric[1] += temp
+            for i in range(self.out_len):
+                temp_y_pred = y_pred[:, i, :, :, :].unsqueeze(1)
+                temp_y = y[:, i, :, :, :].unsqueeze(1)
+                temp = metric[0](temp_y_pred, temp_y, **metric[-1])   
+                if isinstance(temp, list):
+                    temp = np.array(temp)
+                elif isinstance(temp, torch.Tensor):
+                    temp = temp.detach().cpu().numpy()
+                metric[1][i] += temp
             
     def get_results(self):
         output_holder = {}
@@ -172,7 +177,10 @@ class MetricListEvaluator():
             # special handle of tfpn => compute the final score now
             if metric[0] is utpp.tfpn:
                 metric_name, threshold = key.split('-')
-                val = eval(metric_name)(*list(metric[1]))
+                # for i in range(self.out_len):
+                #     val[i] = eval(metric_name)(*list(metric[1][i]))
+                # matrix operation to make it faster
+                val = np.apply_along_axis(lambda x: eval(metric_name)(*list(x)), axis=1, arr=metric[1])
             else:
                 val /= self.batch_count if self.batch_count > 0 else 1
             output_holder[key] = val
@@ -231,7 +239,7 @@ if __name__ == '__main__':
         metric_list = args.metrics.lower().split('/')
         logging.info(f'Overwriting metrics list with: {metric_list}')
 
-    evaluator = MetricListEvaluator(metric_list)
+    evaluator = MetricListEvaluator(metric_list, dataset_meta['out_len'])
     step = 1
     while args.step < 0 or step <= args.step:
         model.eval()        
@@ -296,11 +304,17 @@ if __name__ == '__main__':
         # log/print every
         if step == 1 or step % args.print_every == 0:
             logging.info(f'{step} Steps evaluated')
-            
+        # print(step)
+        # if step > 2:
+        #     break
         step += 1
     
 
     # log the final scores
     final_results = evaluator.get_results()
+    import json
+    results_file = os.path.join(args.output, f'{"_".join(args.checkpt.split("/")[-2:])}.json')
+    with open(results_file, 'w') as f:
+        json.dump(str(final_results), f)
     for k, v in final_results.items():
-        logging.info(f'{k}: {v}')
+        logging.info(f'{k}: {np.mean(v)}')

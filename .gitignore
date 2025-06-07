@@ -1,0 +1,15 @@
+checkpoints/
+data/
+logs/
+results/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+.ipynb_checkpoints/
+cosmmnist.ipynb
+earthformer-minimal/
+gg.png
+train_cosmmnist.py

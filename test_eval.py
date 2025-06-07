@@ -124,9 +124,10 @@ class MetricListEvaluator():
     - SSIM
     - PSNR    
     '''
-    def __init__(self, metric_list):        
+    def __init__(self, metric_list, out_len):        
         self.metric_holder = {}
         self.batch_count = 0
+        self.out_len = out_len
         for metric_name in metric_list:
             threshold = ''
             if '-' in metric_name:
@@ -145,37 +146,54 @@ class MetricListEvaluator():
         '''        
         if metric_name in ['csi', 'pod', 'far']:
             # use tfpn instead
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold']}] # tp, 
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold']}] # tp, 
         elif metric_name == 'csi_4':
             # tfpn with radius (pooling)
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 4}]
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 4}]
         elif metric_name == 'csi_16':
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 16}]
+            return [utpp.tfpn, np.zeros((self.out_len, 4), dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 16}]
         else:
             # directly convert the string name into function call
-            return [eval(metric_name), 0, {}]
+            return [eval(metric_name), np.zeros(self.out_len), {}]
 
     def eval(self, y_pred, y):
         self.batch_count += 1
+        print("++++++++Eval func+++++++++")
+        print(self.batch_count)
+        # print(self.metric_holder.items())
         for _, metric in self.metric_holder.items():
-            temp = metric[0](y_pred, y, **metric[-1])      
-            if temp is list:
-                temp = np.array(temp)
-            elif type(temp) == torch.Tensor:
-                temp = temp.detach().cpu().numpy()
-            metric[1] += temp
+            print(_, metric[0], metric[1], metric[2])
+            for i in range(self.out_len):
+                temp_y_pred = y_pred[:, i, :, :, :].unsqueeze(1)
+                temp_y = y[:, i, :, :, :].unsqueeze(1)
+                temp = metric[0](temp_y_pred, temp_y, **metric[-1])   
+                if isinstance(temp, list):
+                    temp = np.array(temp)
+                elif isinstance(temp, torch.Tensor):
+                    temp = temp.detach().cpu().numpy()
+                print(metric[1].shape, temp)
+                metric[1][i] += temp
+            print(_, metric[0], metric[1], metric[2])
+        print("+++++++++End of Eval Func++++++++")
             
     def get_results(self):
         output_holder = {}
+        print("+++++++Get Results++++++++")
+        print(self.metric_holder.items())
         for key, metric in self.metric_holder.items():
             val = metric[1]
             # special handle of tfpn => compute the final score now
             if metric[0] is utpp.tfpn:
                 metric_name, threshold = key.split('-')
-                val = eval(metric_name)(*list(metric[1]))
+                for i in range(self.out_len):
+                    val[i] = eval(metric_name)(*list(metric[1][i]))
+                # matrix operation to make it faster
+                # val = np.apply_along_axis(lambda x: eval(metric_name)(*list(x)), axis=1, arr=metric[1])
             else:
                 val /= self.batch_count if self.batch_count > 0 else 1
             output_holder[key] = val
+        print(output_holder)
+        print("++++++++End of Get Results++++++++")
         return output_holder
 
 # ===============================================================================================
@@ -231,7 +249,7 @@ if __name__ == '__main__':
         metric_list = args.metrics.lower().split('/')
         logging.info(f'Overwriting metrics list with: {metric_list}')
 
-    evaluator = MetricListEvaluator(metric_list)
+    evaluator = MetricListEvaluator(metric_list, dataset_meta['out_len'])
     step = 1
     while args.step < 0 or step <= args.step:
         model.eval()        
@@ -245,6 +263,7 @@ if __name__ == '__main__':
                 logging.error(e)
                 break
             x_seq, x_mask, dt_clip, _ = data
+            # print(dt_clip)
             #setattr(args, 'resize', 128) # uncomment this line if you want to reshape
             x, y = utpp.hko7_preprocess(x_seq, x_mask, dt_clip, args) 
         elif dataset_meta['dataset'] == 'SEVIR':
@@ -286,21 +305,47 @@ if __name__ == '__main__':
                 y_pred = model_config['post'](y_pred)
             y_pred = torch.clamp(y_pred, 0, 1)
 
-            #utpp.torch_visualize({'x': data[0][0].unsqueeze(0),\
-            #                    'gt': data[1][0].unsqueeze(0),\
+            # utpp.torch_visualize({'x': x[0].unsqueeze(0),\
+            #                    'gt': y[0].unsqueeze(0),\
             #                    'pred': y_pred[0].unsqueeze(0)}, 'gg.png')
 
         # evaluate the metrics
+        # print(x.shape, y.shape, y_pred.shape)
+        thresholds = [84, 117, 140, 158, 185]
+        for threshold in thresholds:
+            threshold = threshold/255
+            tp = torch.sum((y > threshold) & (y_pred > threshold))
+            tn = torch.sum((y <= threshold) & (y_pred <= threshold))
+            fp = torch.sum((y <= threshold) & (y_pred > threshold))
+            fn = torch.sum((y > threshold) & (y_pred <= threshold))
+            # print(tp, tn, fp, fn)
+            tp = torch.sum((y >= threshold) & (y_pred >= threshold), dim=(0, 2, 3, 4))
+            tn = torch.sum((y < threshold) & (y_pred < threshold), dim=(0, 2, 3, 4))
+            fp = torch.sum((y < threshold) & (y_pred >= threshold), dim=(0, 2, 3, 4))
+            fn = torch.sum((y >= threshold) & (y_pred < threshold), dim=(0, 2, 3, 4))
+            csi_value = tp / (tp + fp + fn)
+            print(f'CSI Array for threshold {threshold}: {csi_value}')
+
+            tp = torch.sum((y >= threshold) & (y_pred >= threshold))
+            tn = torch.sum((y < threshold) & (y_pred < threshold))
+            fp = torch.sum((y < threshold) & (y_pred >= threshold))
+            fn = torch.sum((y >= threshold) & (y_pred < threshold))
+            csi_value = tp / (tp + fp + fn)
+            print(f'CSI for threshold {threshold}: {csi_value}')
+
+        # exit(0)
         evaluator.eval(y_pred, y)
 
         # log/print every
         if step == 1 or step % args.print_every == 0:
             logging.info(f'{step} Steps evaluated')
-            
+        print(step)
+        if step > 2:
+            break
         step += 1
     
 
     # log the final scores
     final_results = evaluator.get_results()
     for k, v in final_results.items():
-        logging.info(f'{k}: {v}')
+        logging.info(f'{k}: {np.mean(v)}')

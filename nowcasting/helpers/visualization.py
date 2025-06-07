@@ -160,18 +160,18 @@ def save_hko_movie(im_dat, datetime_list, mask_dat=None, save_path="hko.mp4", ma
             # color_im_dat = cv2.cvtColor(im_dat[i], cv2.COLOR_GRAY2RGBA)
             # mask_im_dat = mask_color.reshape((1, 1, 4)) * np.expand_dims(1 - mask_dat[i], axis=2)
             # im = merge_rgba_cv2(front_img=mask_im_dat, back_img=color_im_dat)
-        if prediction_start is not None and i >= prediction_start:
-            cv2.putText(im, text=datetime_list[i].strftime('%Y/%m/%d %H:%M'),
-                        org=(0, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4,
-                        color=(255, 0, 0, 0))
-        else:
-            cv2.putText(im, text=datetime_list[i].strftime('%Y/%m/%d %H:%M'),
-                        org=(0, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4,
-                        color=(255, 255, 255, 0))
-        cv2.rectangle(im,
-                      pt1=(central_region[0], central_region[1]),
-                      pt2=(central_region[2], central_region[3]),
-                      color=(0, 255, 0, 0))
+        # if prediction_start is not None and i >= prediction_start:
+        #     cv2.putText(im, text=datetime_list[i].strftime('%Y/%m/%d %H:%M'),
+        #                 org=(0, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4,
+        #                 color=(255, 0, 0, 0))
+        # else:
+        #     cv2.putText(im, text=datetime_list[i].strftime('%Y/%m/%d %H:%M'),
+        #                 org=(0, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4,
+        #                 color=(255, 255, 255, 0))
+        # cv2.rectangle(im,
+        #               pt1=(central_region[0], central_region[1]),
+        #               pt2=(central_region[2], central_region[3]),
+        #               color=(0, 255, 0, 0))
         display_im_dat.append(im)
     clip = mpy.ImageSequenceClip(display_im_dat, with_mask=False, fps=fps)
     clip.write_videofile(save_path, audio=False, verbose=False, threads=4)

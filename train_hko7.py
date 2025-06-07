@@ -26,9 +26,19 @@ import utilspp as utpp
 from eval import GET_MODEL, MetricListEvaluator
 from config import *
 
+# print("CUDA_VISIBLE_DEVICES:", os.getenv("CUDA_VISIBLE_DEVICES"))
+# print("Available GPUs:", torch.cuda.device_count())
+# for i in range(torch.cuda.device_count()):
+#     print(f"Device {i}: {torch.cuda.get_device_name(i)}")
+# print(f"Using device: {torch.cuda.current_device()}")
+# print(f"Device name: {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+
 try:
     from models.earthformer_model import SequentialLR, warmup_lambda
+    print("+++++++++ successfully imported Earthformer +++++++++++++")
 except ModuleNotFoundError as e:
+    print("+++++++++ could not import Earthformer +++++++++++++")
     print(e)
    
 def get_loss(loss, args): 

@@ -2,6 +2,9 @@ import torch
 from bisect import bisect_right
 
 from omegaconf import OmegaConf
+import sys
+sys.path.append('/home/piyush/projects/weather_forecast/FACL/earthformer-minimal')
+# print(sys.path)
 from earthformer.cuboid_transformer.cuboid_transformer import *
 
 class SequentialLR(torch.optim.lr_scheduler._LRScheduler):

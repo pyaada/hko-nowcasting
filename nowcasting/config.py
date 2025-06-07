@@ -19,7 +19,7 @@ __C.DATASET = None
 # Project directory, since config.py is supposed to be in $ROOT_DIR/nowcasting
 #__C.ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # ====== Changed the root dir to a fixed path =======
-__C.ROOT_DIR = 'data/HKO-7'
+__C.ROOT_DIR = '/workspace_bk/piyush/data/radar/HKO-7/'
 
 __C.MNIST_PATH = os.path.join(__C.ROOT_DIR, 'mnist_data')
 if not os.path.exists(__C.MNIST_PATH):
@@ -27,10 +27,10 @@ if not os.path.exists(__C.MNIST_PATH):
 __C.HKO_DATA_BASE_PATH = os.path.join(__C.ROOT_DIR, 'hko_data')
 
 # Append your path to the possible paths
-possible_hko_png_paths = [os.path.join('E:\\datasets\\HKO-data\\radarPNG\\radarPNG'),
+possible_hko_png_paths = [os.path.join('/workspace_bk/piyush/data/radar/HKO-7/radarPNG'),
                           os.path.join(__C.HKO_DATA_BASE_PATH, 'radarPNG'),
                           'data/HKO-7/radarPNG']
-possible_hko_mask_paths = [os.path.join('E:\\datasets\\HKO-data\\radarPNG\\radarPNG_mask'),
+possible_hko_mask_paths = [os.path.join('/workspace_bk/piyush/data/radar/HKO-7/radarPNG_mask'),
                            os.path.join(__C.HKO_DATA_BASE_PATH, 'radarPNG_mask'),
                            'data/HKO-7/radarPNG_mask']
 # Search for the radarPNG

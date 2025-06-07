@@ -1,0 +1,7 @@
+Model checkpoint: predrnn_num_layers-4_num_hidden-64-64-64-64_configs-{'input_length': 5, 'total_length': 25, 'img_channel': 1, 'patch_size': 4, 'img_width': 480, 'img_height': 480, 'filter_size': 5, 'stride': 1, 'layer_norm': 1, 'activation': 'sigmoid'}_final.pt
+Steps: -1
+/home/piyush/projects/weather_forecast/FACL/nowcasting/hko_iterator.py:57: UserWarning: Reading `.npy` or `.npz` file required additional header parsing as it was created on Python 2. Save the file again to speed up loading and avoid this warning.
+  exclude_mask = dat['exclude_mask'][:]
+
+Model Info: predrnn. 
+ {'num_layers': 4, 'num_hidden': [64, 64, 64, 64], 'configs': {'input_length': 5, 'total_length': 25, 'img_channel': 1, 'patch_size': 4, 'img_width': 480, 'img_height': 480, 'filter_size': 5, 'stride': 1, 'layer_norm': 1, 'activation': 'sigmoid'}}

@@ -712,8 +712,8 @@ PREDRNN_HKO7 = {
             'total_length': 25,
             'img_channel': 1,
             'patch_size': 4,
-            'img_width': 128,                        
-            'img_height': 128, 
+            'img_width': 480,                        
+            'img_height': 480, 
             'filter_size': 5,
             'stride': 1,
             'layer_norm': 1,
@@ -737,8 +737,8 @@ PREDRNN_HKO7_SIGMOID = {
             'total_length': 25,
             'img_channel': 1,
             'patch_size': 4,
-            'img_width': 128,                        
-            'img_height': 128, 
+            'img_width': 480,                        
+            'img_height': 480, 
             'filter_size': 5,
             'stride': 1,
             'layer_norm': 1,
@@ -960,6 +960,24 @@ SEVIR_13_12_POOLING = {
         'start_date': dutils.SEVIR_TRAIN_TEST_SPLIT_DATE,
         'end_date': None,
     },
+}
+
+HKO7_rainy_5_20 = {
+    'meta': {
+        'dataset': 'HKO-7',
+        'seq_len': 5,
+        'out_len': 20,
+        'metrics': ['mae', 'mse', 'ssim', 'psnr', 'csi-84', 'csi-117', 'csi-140', 'csi-158', 'csi-185', 
+                    'csi_4-84', 'csi_4-117', 'csi_4-140', 'csi_4-158', 'csi_4-185', 
+                    'csi_16-84', 'csi_16-117', 'csi_16-140', 'csi_16-158', 'csi_16-185',
+                    'pod-84', 'far-84', 'fss']
+    },
+    'param': {            
+        'pd_path': 'data/HKO-7/old_samplers/hko7_rainy_test.pkl',
+        'sample_mode': 'sequent',
+        'seq_len': 25,
+        'stride': 5,    
+    }
 }
 
 HKO7_5_20 = {

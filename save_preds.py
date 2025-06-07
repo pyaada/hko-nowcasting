@@ -42,10 +42,11 @@ try:
 except RuntimeError as e:
     print(f'Error preparing HKO-7 dataset: (Please ignore this message if you do not need HKO-7) \n{e}')
 
+from nowcasting.helpers.visualization import save_hko_movie
+
 from data import dutils
 
 import utilspp as utpp
-from utilspp import mae, mse, ssim, psnr, csi, pod, far, vpmse, vpmae, lpips, inception_score, fid, fss, rhd, csi_4, csi_16
 from config import *
 
 class dotdict(dict):
@@ -113,71 +114,6 @@ def GET_DATALOADER(meta, param, batch_size):
     else:
         raise Exception(f'Undefined dataset config name: {meta["dataset"]}')
 
-class MetricListEvaluator():    
-    '''
-    To evaluate a list of metrics. Supported metrics:
-    - CSI (Eg. `csi-84`)
-    - POD (Eg. `pod-84`)
-    - FAR (Eg. `far-84`)
-    - MAE
-    - MSE
-    - SSIM
-    - PSNR    
-    '''
-    def __init__(self, metric_list):        
-        self.metric_holder = {}
-        self.batch_count = 0
-        for metric_name in metric_list:
-            threshold = ''
-            if '-' in metric_name:
-                metric_name, threshold = metric_name.split('-')
-            # initialize metrics
-            key_name = metric_name + (f'-{threshold}' if len(threshold) > 0 else '')
-            threshold = float(threshold) / 255 if threshold.isdigit() else threshold
-            self.metric_holder[key_name] = self.init_metric(metric_name, threshold=threshold)
-    
-    def init_metric(self, metric_name, **kwarg):
-        '''
-        return a tuple of three items in order:
-        - the function to call during eval
-        - the value(s) to keep track of
-        - a dict of any additional item to pass into the function
-        '''        
-        if metric_name in ['csi', 'pod', 'far']:
-            # use tfpn instead
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold']}] # tp, 
-        elif metric_name == 'csi_4':
-            # tfpn with radius (pooling)
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 4}]
-        elif metric_name == 'csi_16':
-            return [utpp.tfpn, np.array([0, 0, 0, 0], dtype=np.float32), {'threshold': kwarg['threshold'], 'radius': 16}]
-        else:
-            # directly convert the string name into function call
-            return [eval(metric_name), 0, {}]
-
-    def eval(self, y_pred, y):
-        self.batch_count += 1
-        for _, metric in self.metric_holder.items():
-            temp = metric[0](y_pred, y, **metric[-1])      
-            if temp is list:
-                temp = np.array(temp)
-            elif type(temp) == torch.Tensor:
-                temp = temp.detach().cpu().numpy()
-            metric[1] += temp
-            
-    def get_results(self):
-        output_holder = {}
-        for key, metric in self.metric_holder.items():
-            val = metric[1]
-            # special handle of tfpn => compute the final score now
-            if metric[0] is utpp.tfpn:
-                metric_name, threshold = key.split('-')
-                val = eval(metric_name)(*list(metric[1]))
-            else:
-                val /= self.batch_count if self.batch_count > 0 else 1
-            output_holder[key] = val
-        return output_holder
-
 # ===============================================================================================
 # MAIN
 # ===============================================================================================
@@ -231,8 +167,12 @@ if __name__ == '__main__':
         metric_list = args.metrics.lower().split('/')
         logging.info(f'Overwriting metrics list with: {metric_list}')
 
-    evaluator = MetricListEvaluator(metric_list)
     step = 1
+    import numpy as np
+
+    # Initialize an empty list to store the results
+    results = []
+
     while args.step < 0 or step <= args.step:
         model.eval()        
 
@@ -245,6 +185,7 @@ if __name__ == '__main__':
                 logging.error(e)
                 break
             x_seq, x_mask, dt_clip, _ = data
+            # print(dt_clip)
             #setattr(args, 'resize', 128) # uncomment this line if you want to reshape
             x, y = utpp.hko7_preprocess(x_seq, x_mask, dt_clip, args) 
         elif dataset_meta['dataset'] == 'SEVIR':
@@ -261,7 +202,6 @@ if __name__ == '__main__':
                 x, y = data
             else:
                 x, y = data[:, :seq_len], data[:, seq_len:]
-
         with torch.no_grad():
             x = x.to(device)     
             y = y.to(device)            
@@ -285,22 +225,45 @@ if __name__ == '__main__':
             if model_config['post'] is not None:
                 y_pred = model_config['post'](y_pred)
             y_pred = torch.clamp(y_pred, 0, 1)
-
-            #utpp.torch_visualize({'x': data[0][0].unsqueeze(0),\
-            #                    'gt': data[1][0].unsqueeze(0),\
-            #                    'pred': y_pred[0].unsqueeze(0)}, 'gg.png')
-
-        # evaluate the metrics
-        evaluator.eval(y_pred, y)
+        # print(seq_len, out_len)
+        # for dt in dt_clip:
+        #     print(dt[0], dt[seq_len-1], dt[seq_len], dt[-1], sep=', ')
+        # print(x.shape, y.shape, y_pred.shape)
 
         # log/print every
         if step == 1 or step % args.print_every == 0:
             logging.info(f'{step} Steps evaluated')
-            
+        # print(step)
+        # if step > 20:
+        #     break
         step += 1
-    
+        
+        for i in range(args.batch_size):
+        #     print(x.shape, y.shape,y_pred.shape)
+        # Only for ConvLSTM
+        #     # print(x.cpu().numpy()[:, i, 0, :, :].shape, y.cpu().numpy()[i, :, 0, :, :].shape, y_pred.cpu().numpy()[i, :, 0, :, :].shape)
+        #     print(len(dt_clip), len(dt_clip[i]))
+        #     # print(dt_clip[i][0:seq_len], dt_clip[i][seq_len:seq_len + y.shape[1]])
+        #     print(f"{dt_clip[i][0].strftime('%Y%m%d%H%M')}_in.mp4")
+        # exit(0)
+            # Create output directory if it doesn't exist
+            save_dir = os.path.join('/workspace_bk/piyush/results/facl', args.model)
+            os.makedirs(save_dir, exist_ok=True)
 
-    # log the final scores
-    final_results = evaluator.get_results()
-    for k, v in final_results.items():
-        logging.info(f'{k}: {v}')
+            # Save input sequence
+            save_hko_movie(im_dat=x.cpu().numpy()[i, :, 0, :, :],
+                        datetime_list=dt_clip[i][0:seq_len],
+                        save_path=os.path.join(save_dir,
+                                            f"{dt_clip[i][0].strftime('%Y%m%d%H%M')}_in.mp4"))
+
+            # Save ground truth sequence
+            save_hko_movie(im_dat=y.cpu().numpy()[i, :, 0, :, :],
+                        datetime_list=dt_clip[i][seq_len:seq_len + y.shape[1]],
+                        save_path=os.path.join(save_dir,
+                                            f"{dt_clip[i][0].strftime('%Y%m%d%H%M')}_out.mp4"))
+
+            # Save prediction sequence  
+            save_hko_movie(im_dat=y_pred.cpu().numpy()[i, :, 0, :, :],
+                        datetime_list=dt_clip[i][seq_len:seq_len + y_pred.shape[1]],
+                        save_path=os.path.join(save_dir,
+                                            f"{dt_clip[i][0].strftime('%Y%m%d%H%M')}_pred.mp4"))
