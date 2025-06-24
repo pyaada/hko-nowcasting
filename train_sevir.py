@@ -61,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', type=str, default='', help='model checkpoint to be loaded from (Empty = not loading)')
     parser.add_argument('-o', '--output', type=str, default='checkpoints', help='The output directory')
     parser.add_argument('-m', '--model', type=str, default='', help='The global configuration to be used (The var name in config.py)')
+    parser.add_argument('-dm', '--data_mode', type=str, default='rad', help='The data types to be used (rad, noco, co, fused)')
     # hyperparams
     parser.add_argument('--lr', type=float, default=0.001, help='The initial learning rate')
     parser.add_argument('-e', '--epoch', type=int, default=50, help='The number of epochs to run')
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     assert args.model != '', 'You must specify the model config using -m/--model!'
 
     # read the model config
-    dataset_type = 'sevir'
+    dataset_type = 'sevir_' + args.data_mode
     dataset_metrics = ['mae', 'mse', 'ssim', 'psnr', 'csi-74', 'csi-219']
     model_config = globals()[args.model]
     model_type =  model_config['model']
@@ -93,9 +94,9 @@ if __name__ == '__main__':
 
     # prepare dataloader
     total_seq_len = args.seq_len + args.out_len
-    train_loader = dutils.SEVIRDataLoader(['vil'], layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
+    train_loader = dutils.SEVIRDataLoader(args.data_mode, layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
                                           end_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE)
-    test_loader = dutils.SEVIRDataLoader(['vil'], layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
+    test_loader = dutils.SEVIRDataLoader(args.data_mode, layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
                                          start_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE)    
 
     # forge a "step" parameter for the PFFT loss

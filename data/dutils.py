@@ -892,7 +892,7 @@ PREPROCESS_OFFSET_01 = {'vis': 0,
 # sevir
 SEVIR_ROOT_DIR = "/workspace_bk/piyush/data/radar/sevir"
 SEVIR_CATALOG = os.path.join(SEVIR_ROOT_DIR, "CATALOG.csv")
-SEVIR_DATA_DIR = os.path.join(SEVIR_ROOT_DIR, "data")
+SEVIR_DATA_DIR = os.path.join(SEVIR_ROOT_DIR, "")
 SEVIR_RAW_SEQ_LEN = 49
 
 SEVIR_TRAIN_VAL_SPLIT_DATE = datetime.datetime(2019, 1, 1)
@@ -1021,7 +1021,8 @@ class SEVIRDataLoader:
                                         ...
     """
     def __init__(self,
-                 data_types: Sequence[str] = None,
+                #  data_types: Sequence[str] = None,
+                 data_mode: str = 'rad',
                  seq_len: int = 49,
                  raw_seq_len: int = 49,
                  sample_mode: str = 'sequent',
@@ -1114,6 +1115,18 @@ class SEVIRDataLoader:
             sevir_catalog = SEVIR_CATALOG
         if sevir_data_dir is None:
             sevir_data_dir = SEVIR_DATA_DIR
+        if data_mode == 'rad':
+            data_types = ['vil']
+        elif data_mode == 'noco':
+            data_types = ['vil']
+            crop_factor = 0.5 # only crops 'vil'
+        elif data_mode == 'co':
+            data_types = ['vil', 'vis', 'ir069', 'ir107', 'lght']
+            downsample_dict = {'vil': (1, 1, 1), 'vis': (1, 1, 1), 'ir069': (1, 1, 1), 'ir107': (1, 1, 1), 'lght': (1, 1, 1)}
+            crop_factor = 0.5 # only crops 'vil'
+        elif data_mode == 'fused':
+            data_types = ['vil', 'vis', 'ir069', 'ir107', 'lght']
+            downsample_dict = {'vil': (1, 1, 1), 'vis': (1, 1, 1), 'ir069': (1, 1, 1), 'ir107': (1, 1, 1), 'lght': (1, 1, 1)}
         if data_types is None:
             data_types = SEVIR_DATA_TYPES
         else:
@@ -1160,6 +1173,7 @@ class SEVIRDataLoader:
         self.downsample_dict = downsample_dict
         self.rescale_method = rescale_method
         self.verbose = verbose
+        self.crop_factor = crop_factor
 
         if self.start_date is not None:
             self.catalog = self.catalog[self.catalog.time_utc > self.start_date]
@@ -1565,7 +1579,8 @@ class SEVIRDataLoader:
             ret_dict = self.preprocess_data_dict(data_dict=ret_dict,
                                                  data_types=self.data_types,
                                                  layout=self.layout,
-                                                 rescale=self.rescale_method)
+                                                 rescale=self.rescale_method,
+                                                 crop_factor=self.crop_factor)
         if self.downsample_dict is not None:
             ret_dict = self.downsample_data_dict(data_dict=ret_dict,
                                                  data_types=self.data_types,
@@ -1578,7 +1593,7 @@ class SEVIRDataLoader:
         return data_dict
 
     @staticmethod
-    def preprocess_data_dict(data_dict, data_types=None, layout='NHWT', rescale='01'):
+    def preprocess_data_dict(data_dict, data_types=None, layout='NHWT', rescale='01', crop_factor=1.0):
         """
         Parameters
         ----------
@@ -1590,6 +1605,8 @@ class SEVIRDataLoader:
         rescale:    str
             'sevir': use the offsets and scale factors in original implementation.
             '01': scale all values to range 0 to 1, currently only supports 'vil'
+        crop_factor: float
+            Fraction of the spatial size to keep (center crop). 1.0 means no crop.
         Returns
         -------
         data_dict:  Dict[str, Union[np.ndarray, torch.Tensor]]
@@ -1607,6 +1624,7 @@ class SEVIRDataLoader:
             data_types = data_dict.keys()
         for key, data in data_dict.items():
             if key in data_types:
+                # Rescale
                 if isinstance(data, np.ndarray):
                     data = scale_dict[key] * (
                             data.astype(np.float32) +
@@ -1621,6 +1639,34 @@ class SEVIRDataLoader:
                     data = change_layout_torch(data=data,
                                                in_layout='NHWT',
                                                out_layout=layout)
+                # Only center crop 'vil' if crop_factor < 1.0
+                if key == 'vil' and crop_factor < 1.0:
+                    # Determine spatial dimensions based on layout
+                    # Supported layouts: 'NHWT', 'NTHW', 'NTCHW', 'NTHWC', 'TNHW', 'TNCHW'
+                    # We'll crop H and W dimensions
+                    layout_map = {
+                        'NHWT': (1, 2),
+                        'NTHW': (2, 3),
+                        'NTCHW': (3, 4),
+                        'NTHWC': (2, 3),
+                        'TNHW': (1, 2),
+                        'TNCHW': (2, 3)
+                    }
+                    if layout not in layout_map:
+                        raise ValueError(f"Unsupported layout for cropping: {layout}")
+                    h_idx, w_idx = layout_map[layout]
+                    shape = data.shape
+                    h, w = shape[h_idx], shape[w_idx]
+                    crop_h = int(h * crop_factor)
+                    crop_w = int(w * crop_factor)
+                    crop_h = max(1, crop_h)
+                    crop_w = max(1, crop_w)
+                    start_h = (h - crop_h) // 2
+                    start_w = (w - crop_w) // 2
+                    slices = [slice(None)] * len(shape)
+                    slices[h_idx] = slice(start_h, start_h + crop_h)
+                    slices[w_idx] = slice(start_w, start_w + crop_w)
+                    data = data[tuple(slices)]
                 data_dict[key] = data
         return data_dict
 

@@ -77,9 +77,9 @@ def GET_CONVLSTM_ED_MMNIST(batch_size=-1):
     forecaster = Forecaster(convlstm_forecaster_params[0], convlstm_forecaster_params[1], out_len=10)
     return encoder, forecaster
 
-def GET_CONVLSTM_ED_SEVIR(batch_size=-1):
+def GET_CONVLSTM_ED_SEVIR_RAD(batch_size=-1):
     '''
-    The batch size doesn't matter. Not used in the model anyway.
+    For SEVIR-RAD: Input shape (N, T, C, H, W) = (4, 25, 1, 384, 384)
     '''
     convlstm_encoder_params = [[
             OrderedDict({'conv1_leaky_1': [1, 8, 4, 4, 1]}),
@@ -106,6 +106,111 @@ def GET_CONVLSTM_ED_SEVIR(batch_size=-1):
             ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
             ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
             ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 96, 96), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
+    forecaster = Forecaster(convlstm_forecaster_params[0], convlstm_forecaster_params[1], out_len=12)
+    return encoder, forecaster
+
+def GET_CONVLSTM_ED_SEVIR_NOCO(batch_size=-1):
+    '''
+    For SEVIR-NOCO: Input shape (N, T, C, H, W) = (4, 25, 1, 192, 192)
+    '''
+    convlstm_encoder_params = [[
+            OrderedDict({'conv1_leaky_1': [1, 8, 4, 4, 1]}),
+            OrderedDict({'conv2_leaky_1': [64, 192, 4, 2, 1]}),
+            OrderedDict({'conv3_leaky_1': [192, 192, 3, 2, 1]}),
+        ],
+        [
+            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    convlstm_forecaster_params = [
+        [
+            OrderedDict({'deconv1_leaky_1': [192, 192, 4, 2, 1]}),
+            OrderedDict({'deconv2_leaky_1': [192, 64, 4, 2, 1]}),
+            OrderedDict({
+                'deconv3_leaky_1': [64, 8, 6, 4, 1],
+                'conv3_leaky_2': [8, 8, 3, 1, 1],
+                'conv3_3': [8, 1, 1, 1, 0]
+            }),
+        ],
+        [
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
+    forecaster = Forecaster(convlstm_forecaster_params[0], convlstm_forecaster_params[1], out_len=12)
+    return encoder, forecaster
+
+def GET_CONVLSTM_ED_SEVIR_CO(batch_size=-1):
+    '''
+    For SEVIR-CO: Input shape (N, T, C, H, W) = (4, 25, 5, 128, 128)
+    '''
+    convlstm_encoder_params = [[
+            OrderedDict({'conv1_leaky_1': [5, 8, 4, 4, 1]}),
+            OrderedDict({'conv2_leaky_1': [64, 192, 4, 2, 1]}),
+            OrderedDict({'conv3_leaky_1': [192, 192, 3, 2, 1]}),
+        ],
+        [
+            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    convlstm_forecaster_params = [
+        [
+            OrderedDict({'deconv1_leaky_1': [192, 192, 4, 2, 1]}),
+            OrderedDict({'deconv2_leaky_1': [192, 64, 4, 2, 1]}),
+            OrderedDict({
+                'deconv3_leaky_1': [64, 8, 6, 4, 1],
+                'conv3_leaky_2': [8, 8, 3, 1, 1],
+                'conv3_3': [8, 5, 1, 1, 0]
+            }),
+        ],
+        [
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
+    forecaster = Forecaster(convlstm_forecaster_params[0], convlstm_forecaster_params[1], out_len=12)
+    return encoder, forecaster
+
+def GET_CONVLSTM_ED_SEVIR_FUSED(batch_size=-1):
+    '''
+    For SEVIR-FUSED: Input shape (N, T, C, H, W) = (4, 25, 5, 128, 128)
+    '''
+    convlstm_encoder_params = [[
+            OrderedDict({'conv1_leaky_1': [5, 8, 4, 4, 1]}),
+            OrderedDict({'conv2_leaky_1': [64, 192, 4, 2, 1]}),
+            OrderedDict({'conv3_leaky_1': [192, 192, 3, 2, 1]}),
+        ],
+        [
+            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+        ]
+    ]
+    convlstm_forecaster_params = [
+        [
+            OrderedDict({'deconv1_leaky_1': [192, 192, 4, 2, 1]}),
+            OrderedDict({'deconv2_leaky_1': [192, 64, 4, 2, 1]}),
+            OrderedDict({
+                'deconv3_leaky_1': [64, 8, 6, 4, 1],
+                'conv3_leaky_2': [8, 8, 3, 1, 1],
+                'conv3_3': [8, 5, 1, 1, 0]
+            }),
+        ],
+        [
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
         ]
     ]
     encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
@@ -231,8 +336,8 @@ SMAATUNET_MMNIST_SIGMOID = {
     },
 }
 
-## SimVP v1
-SIMVP_SEVIR_SIGMOID = {
+## SimVP v1 for SEVIR_RAD (NTCHW: 4, 25, 1, 384, 384)
+SIMVP_SEVIR_RAD_SIGMOID = {
     'model': 'simvp',
     'pre': None,
     'post': None,
@@ -248,13 +353,112 @@ SIMVP_SEVIR_SIGMOID = {
     }
 }
 
-SIMVP_SEVIR = {
+SIMVP_SEVIR_RAD = {
     'model': 'simvp',
     'pre': None,
     'post': None,    
     'param': {  
         'shape_in': (13, 1, 384, 384),
         'shape_out': (12, 1, 384, 384),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'none',
+    }
+}
+
+## SimVP v1 for SEVIR_NOCO (NTCHW: 4, 25, 1, 192, 192)
+SIMVP_SEVIR_NOCO_SIGMOID = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,
+    'param': {     
+        'shape_in': (13, 1, 192, 192),
+        'shape_out': (12, 1, 192, 192),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'sigmoid',
+    }
+}
+
+SIMVP_SEVIR_NOCO = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,    
+    'param': {  
+        'shape_in': (13, 1, 192, 192),
+        'shape_out': (12, 1, 192, 192),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'none',
+    }
+}
+
+## SimVP v1 for SEVIR_CO (NTCHW: 4, 25, 5, 128, 128)
+SIMVP_SEVIR_CO_SIGMOID = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,
+    'param': {     
+        'shape_in': (13, 5, 128, 128),
+        'shape_out': (12, 5, 128, 128),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'sigmoid',
+    }
+}
+
+SIMVP_SEVIR_CO = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,    
+    'param': {  
+        'shape_in': (13, 5, 128, 128),
+        'shape_out': (12, 5, 128, 128),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'none',
+    }
+}
+
+## SimVP v1 for SEVIR_FUSED (NTCHW: 4, 25, 5, 128, 128)
+SIMVP_SEVIR_FUSED_SIGMOID = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,
+    'param': {     
+        'shape_in': (13, 5, 128, 128),
+        'shape_out': (12, 5, 128, 128),
+        'hid_S': 16,
+        'hid_T': 256,
+        'N_S': 4,
+        'N_T': 8,
+        'groups': 8,
+        'last_activation': 'sigmoid',
+    }
+}
+
+SIMVP_SEVIR_FUSED = {
+    'model': 'simvp',
+    'pre': None,
+    'post': None,    
+    'param': {  
+        'shape_in': (13, 5, 128, 128),
+        'shape_out': (12, 5, 128, 128),
         'hid_S': 16,
         'hid_T': 256,
         'N_S': 4,
@@ -425,21 +629,84 @@ SIMVP_METEO_SIGMOID = {
 }
 
 ## ConvLSTM (native)
-CONVLSTM_SEVIR = {
+CONVLSTM_SEVIR_RAD = {
     'model': 'convlstm',
     'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
     'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
-    'ed': GET_CONVLSTM_ED_SEVIR,
+    'ed': GET_CONVLSTM_ED_SEVIR_RAD,
     'param': {
         'last_activation': 'none',
     },
 }
 
-CONVLSTM_SEVIR_SIGMOID = {
+CONVLSTM_SEVIR_RAD_SIGMOID = {
     'model': 'convlstm',
     'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
     'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
-    'ed': GET_CONVLSTM_ED_SEVIR,
+    'ed': GET_CONVLSTM_ED_SEVIR_RAD,
+    'param': {
+        'last_activation': 'sigmoid',
+    },
+}
+
+## ConvLSTM (native)
+CONVLSTM_SEVIR_NOCO = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_NOCO,
+    'param': {
+        'last_activation': 'none',
+    },
+}
+
+CONVLSTM_SEVIR_NOCO_SIGMOID = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_NOCO,
+    'param': {
+        'last_activation': 'sigmoid',
+    },
+}
+
+## ConvLSTM (native)
+CONVLSTM_SEVIR_CO = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_CO,
+    'param': {
+        'last_activation': 'none',
+    },
+}
+
+CONVLSTM_SEVIR_CO_SIGMOID = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_CO,
+    'param': {
+        'last_activation': 'sigmoid',
+    },
+}
+
+## ConvLSTM (native)
+CONVLSTM_SEVIR_FUSED = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_FUSED,
+    'param': {
+        'last_activation': 'none',
+    },
+}
+
+CONVLSTM_SEVIR_FUSED_SIGMOID = {
+    'model': 'convlstm',
+    'pre': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'post': lambda x: x.permute(1, 0, 2, 3, 4), # NTCHW -> NTCHW
+    'ed': GET_CONVLSTM_ED_SEVIR_FUSED,
     'param': {
         'last_activation': 'sigmoid',
     },
