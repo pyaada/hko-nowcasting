@@ -86,7 +86,7 @@ if __name__ == '__main__':
     dataset_metrics = ['mae', 'mse', 'ssim', 'psnr', 'csi-74', 'csi-219']
     model_config = globals()[args.model]
     model_type =  model_config['model']
-    save_path = utpp.build_model_path(args.output, dataset_type, model_type, timestamp=True) + args.remarks
+    save_path = utpp.build_model_path(args.output, dataset_type, f'{model_type}_{args.loss}_{model_config['last_activation']}', timestamp=True) + args.remarks
     os.makedirs(save_path, exist_ok=True)
 
     if 'scheduled_sampling' in model_config:
@@ -95,9 +95,9 @@ if __name__ == '__main__':
     # prepare dataloader
     total_seq_len = args.seq_len + args.out_len
     train_loader = dutils.SEVIRDataLoader(args.data_mode, layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
-                                          end_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE)
+                                          end_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE, rescale_method='guess')
     test_loader = dutils.SEVIRDataLoader(args.data_mode, layout='NTCHW', seq_len=total_seq_len, raw_seq_len=total_seq_len, batch_size=args.batch_size, \
-                                         start_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE)    
+                                         start_date=dutils.SEVIR_TRAIN_TEST_SPLIT_DATE, rescale_method='guess')    
 
     # forge a "step" parameter for the PFFT loss
     setattr(args, 'step', len(train_loader) * args.epoch / args.micro_batch)  
@@ -146,7 +146,19 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             total_step += 1
 
-            x, y = data['vil'][:, :args.seq_len], data['vil'][:, args.seq_len:] 
+            if args.data_mode in ['noco', 'rad']:
+                        x, y = data['vil'][:, :args.seq_len], data['vil'][:, args.seq_len:] 
+            elif args.data_mode in ['co', 'fused']:
+                # Stack vil, vis, ir069, ir107, lght as channels for x, only vil for y
+                # Combine each input along the channel dimension, assuming each is (B, T, 1, H, W)
+                x = torch.cat([
+                    data['vil'][:, :args.seq_len],   # (B, T, 1, H, W)
+                    data['vis'][:, :args.seq_len],
+                    data['ir069'][:, :args.seq_len],
+                    data['ir107'][:, :args.seq_len],
+                    data['lght'][:, :args.seq_len]
+                ], dim=2)  # (B, T, 5, H, W)
+                y = data['vil'][:, args.seq_len:]
             x = x.to(device)     
             y = y.to(device)
 
@@ -215,10 +227,22 @@ if __name__ == '__main__':
                 if v_step >= args.v_steps:
                     break
                 with torch.no_grad():
-                    x, y = data['vil'][:, :args.seq_len], data['vil'][:, args.seq_len:] 
+                    if args.data_mode in ['noco', 'rad']:
+                        x, y = data['vil'][:, :args.seq_len], data['vil'][:, args.seq_len:] 
+                    elif args.data_mode in ['co', 'fused']:
+                        # Stack vil, vis, ir069, ir107, lght as channels for x, only vil for y
+                        x = torch.cat([
+                            data['vil'][:, :args.seq_len],
+                            data['vis'][:, :args.seq_len],
+                            data['ir069'][:, :args.seq_len],
+                            data['ir107'][:, :args.seq_len],
+                            data['lght'][:, :args.seq_len]
+                        ], dim=2)  # shape: (batch, T, C=5, H, W)
+                        y = data['vil'][:, args.seq_len:]
                     x = x.to(device)
                     y = y.to(device)
-                    x_temp = x
+                    # x_temp = x
+                    x_temp = x[:, :, 0:1, :, :]
 
                     # model preprocessing
                     if model_config['pre'] is not None:

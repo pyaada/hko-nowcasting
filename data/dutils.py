@@ -860,6 +860,20 @@ def find_closest(arr, val):
 # =====================================================================================
 
 # SEVIR Dataset constants
+# Dataset Statistics:
+# Means:
+# vil: 0.073026
+# vis: 1424.338257
+# ir069: -3634.392822
+# ir107: -1389.970459
+# lght: 0.033198
+
+# Variances:
+# vil: 0.020495
+# vis: 4171566.500000
+# ir069: 1380053.000000
+# ir107: 6842498.000000
+# lght: 0.436563
 SEVIR_DATA_TYPES = ['vis', 'ir069', 'ir107', 'vil', 'lght']
 SEVIR_RAW_DTYPES = {'vis': np.int16,
                     'ir069': np.int16,
@@ -867,7 +881,7 @@ SEVIR_RAW_DTYPES = {'vis': np.int16,
                     'vil': np.uint8,
                     'lght': np.int16}
 LIGHTING_FRAME_TIMES = np.arange(- 120.0, 125.0, 5) * 60
-SEVIR_DATA_SHAPE = {'lght': (48, 48), }
+SEVIR_DATA_SHAPE = {'lght': (192, 192), }
 PREPROCESS_SCALE_SEVIR = {'vis': 1,  # Not utilized in original paper
                           'ir069': 1 / 1174.68,
                           'ir107': 1 / 2562.43,
@@ -889,10 +903,45 @@ PREPROCESS_OFFSET_01 = {'vis': 0,
                         'vil': 0,  # currently the only one implemented
                         'lght': 0}
 
+# PREPROCESS_SCALE_GUESS = {'vis': 1 / 10000, # [0,1]
+#                        'ir069': 1 / 4000, # [0,1]
+#                        'ir107': 1 / 10000, # [0,1]
+#                        'vil': 1 / 128,  # [-1,1]
+#                        'lght': 1 / 30} # [0,1]
+# PREPROCESS_OFFSET_GUESS = {'vis': 0, # [0,1]
+#                         'ir069': 7000, # [0,1]
+#                         'ir107': 7000, # [0,1]
+#                         'vil': - 128,  # [-1,1]
+#                         'lght': 0} # [0,1]
+
+PREPROCESS_SCALE_GUESS = {'vis': 1 / 10000, # [0,1]
+                       'ir069': 1 / 4000, # [0,1]
+                       'ir107': 1 / 10000, # [0,1]
+                       'vil': 1 / 255,  # [0,1]
+                       'lght': 1 / 30} # [0,1]
+PREPROCESS_OFFSET_GUESS = {'vis': 0, # [0,1]
+                        'ir069': 7000, # [0,1]
+                        'ir107': 7000, # [0,1]
+                        'vil': 0,  # [0,1]
+                        'lght': 0} # [0,1]
+
+PREPROCESS_SCALE_STATS = {
+                        'vil': 1 / (0.020495 ** 0.5),
+                        'vis': 1 / (4171566.5 ** 0.5),
+                        'ir069': 1 / (1380053.0 ** 0.5),
+                        'ir107': 1 / (6842498.0 ** 0.5),
+                        'lght': 1 / (0.436563 ** 0.5)}
+PREPROCESS_OFFSET_STATS = {
+                        'vil': -0.073026,
+                        'vis': -1424.338257,
+                        'ir069': 3634.392822,
+                        'ir107': 1389.970459,
+                        'lght': -0.033198}
+
 # sevir
-SEVIR_ROOT_DIR = "/workspace_bk/piyush/data/radar/sevir"
+SEVIR_ROOT_DIR = "/project/climet/piyush/data/sevir"
 SEVIR_CATALOG = os.path.join(SEVIR_ROOT_DIR, "CATALOG.csv")
-SEVIR_DATA_DIR = os.path.join(SEVIR_ROOT_DIR, "")
+SEVIR_DATA_DIR = os.path.join(SEVIR_ROOT_DIR, "data")
 SEVIR_RAW_SEQ_LEN = 49
 
 SEVIR_TRAIN_VAL_SPLIT_DATE = datetime.datetime(2019, 1, 1)
@@ -1042,7 +1091,8 @@ class SEVIRDataLoader:
                  shuffle_seed: int = 1,
                  output_type=np.float32,
                  preprocess: bool = True,
-                 rescale_method: str = '01',
+                 rescale_method: str = None,
+                 crop_factor: float = 1.0,
                  downsample_dict: Dict[str, Sequence[int]] = None,
                  verbose: bool = False):
         r"""
@@ -1122,11 +1172,11 @@ class SEVIRDataLoader:
             crop_factor = 0.5 # only crops 'vil'
         elif data_mode == 'co':
             data_types = ['vil', 'vis', 'ir069', 'ir107', 'lght']
-            downsample_dict = {'vil': (1, 1, 1), 'vis': (1, 1, 1), 'ir069': (1, 1, 1), 'ir107': (1, 1, 1), 'lght': (1, 1, 1)}
+            downsample_dict = {'vis': (1, 4, 4)} # vil doesnot need to be downscaled because of the crop
             crop_factor = 0.5 # only crops 'vil'
         elif data_mode == 'fused':
             data_types = ['vil', 'vis', 'ir069', 'ir107', 'lght']
-            downsample_dict = {'vil': (1, 1, 1), 'vis': (1, 1, 1), 'ir069': (1, 1, 1), 'ir107': (1, 1, 1), 'lght': (1, 1, 1)}
+            downsample_dict = {'vil': (1, 2, 2), 'vis': (1, 4, 4)}
         if data_types is None:
             data_types = SEVIR_DATA_TYPES
         else:
@@ -1593,7 +1643,7 @@ class SEVIRDataLoader:
         return data_dict
 
     @staticmethod
-    def preprocess_data_dict(data_dict, data_types=None, layout='NHWT', rescale='01', crop_factor=1.0):
+    def preprocess_data_dict(data_dict, data_types=None, layout='NHWT', rescale=None, crop_factor=1.0):
         """
         Parameters
         ----------
@@ -1605,6 +1655,8 @@ class SEVIRDataLoader:
         rescale:    str
             'sevir': use the offsets and scale factors in original implementation.
             '01': scale all values to range 0 to 1, currently only supports 'vil'
+            'stats': scale all values to range 0 to 1 based on dataset statistics
+            'guess': scale based on guessed values
         crop_factor: float
             Fraction of the spatial size to keep (center crop). 1.0 means no crop.
         Returns
@@ -1612,33 +1664,38 @@ class SEVIRDataLoader:
         data_dict:  Dict[str, Union[np.ndarray, torch.Tensor]]
             preprocessed data
         """
-        if rescale == 'sevir':
-            scale_dict = PREPROCESS_SCALE_SEVIR
-            offset_dict = PREPROCESS_OFFSET_SEVIR
-        elif rescale == '01':
-            scale_dict = PREPROCESS_SCALE_01
-            offset_dict = PREPROCESS_OFFSET_01
-        else:
-            raise ValueError(f'Invalid rescale option: {rescale}.')
+        if rescale:
+            if rescale == 'sevir':
+                scale_dict = PREPROCESS_SCALE_SEVIR
+                offset_dict = PREPROCESS_OFFSET_SEVIR
+            elif rescale == '01':
+                scale_dict = PREPROCESS_SCALE_01
+                offset_dict = PREPROCESS_OFFSET_01
+            elif rescale == 'stats':
+                scale_dict = PREPROCESS_SCALE_STATS
+                offset_dict = PREPROCESS_OFFSET_STATS
+            elif rescale == 'guess':
+                scale_dict = PREPROCESS_SCALE_GUESS
+                offset_dict = PREPROCESS_OFFSET_GUESS
+            else:
+                raise ValueError(f'Invalid rescale option: {rescale}.')
         if data_types is None:
             data_types = data_dict.keys()
         for key, data in data_dict.items():
             if key in data_types:
                 # Rescale
-                if isinstance(data, np.ndarray):
-                    data = scale_dict[key] * (
-                            data.astype(np.float32) +
-                            offset_dict[key])
-                    data = change_layout_np(data=data,
-                                            in_layout='NHWT',
-                                            out_layout=layout)
-                elif isinstance(data, torch.Tensor):
-                    data = scale_dict[key] * (
-                            data.float() +
-                            offset_dict[key])
-                    data = change_layout_torch(data=data,
-                                               in_layout='NHWT',
-                                               out_layout=layout)
+                if rescale: 
+                    if isinstance(data, np.ndarray):
+                        data = scale_dict[key] * (
+                                data.astype(np.float32) +
+                                offset_dict[key])
+                    elif isinstance(data, torch.Tensor):
+                        data = scale_dict[key] * (
+                                data.float() +
+                                offset_dict[key])
+                data = change_layout_torch(data=data,
+                                        in_layout='NHWT',
+                                        out_layout=layout)
                 # Only center crop 'vil' if crop_factor < 1.0
                 if key == 'vil' and crop_factor < 1.0:
                     # Determine spatial dimensions based on layout
@@ -1903,8 +1960,8 @@ class SEVIRDataLoader:
             ret_dict = self.preprocess_data_dict(data_dict=ret_dict,
                                                  data_types=self.data_types,
                                                  layout=self.layout,
-                                                 rescale=self.rescale_method)
-
+                                                 rescale=self.rescale_method,
+                                                 crop_factor=self.crop_factor)
         if self.downsample_dict is not None:
             ret_dict = self.downsample_data_dict(data_dict=ret_dict,
                                                  data_types=self.data_types,

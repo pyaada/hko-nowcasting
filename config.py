@@ -149,7 +149,7 @@ def GET_CONVLSTM_ED_SEVIR_NOCO(batch_size=-1):
 
 def GET_CONVLSTM_ED_SEVIR_CO(batch_size=-1):
     '''
-    For SEVIR-CO: Input shape (N, T, C, H, W) = (4, 25, 5, 128, 128)
+    For SEVIR-CO: Input shape (N, T, C, H, W) = (4, 25, 5, 192, 192)
     '''
     convlstm_encoder_params = [[
             OrderedDict({'conv1_leaky_1': [5, 8, 4, 4, 1]}),
@@ -157,9 +157,9 @@ def GET_CONVLSTM_ED_SEVIR_CO(batch_size=-1):
             OrderedDict({'conv3_leaky_1': [192, 192, 3, 2, 1]}),
         ],
         [
-            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
         ]
     ]
     convlstm_forecaster_params = [
@@ -169,13 +169,13 @@ def GET_CONVLSTM_ED_SEVIR_CO(batch_size=-1):
             OrderedDict({
                 'deconv3_leaky_1': [64, 8, 6, 4, 1],
                 'conv3_leaky_2': [8, 8, 3, 1, 1],
-                'conv3_3': [8, 5, 1, 1, 0]
+                'conv3_3': [8, 1, 1, 1, 0] # pred of shape [B, T, 1, H, W] with vil only
             }),
         ],
         [
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
         ]
     ]
     encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
@@ -184,7 +184,7 @@ def GET_CONVLSTM_ED_SEVIR_CO(batch_size=-1):
 
 def GET_CONVLSTM_ED_SEVIR_FUSED(batch_size=-1):
     '''
-    For SEVIR-FUSED: Input shape (N, T, C, H, W) = (4, 25, 5, 128, 128)
+    For SEVIR-CO: Input shape (N, T, C, H, W) = (4, 25, 5, 192, 192)
     '''
     convlstm_encoder_params = [[
             OrderedDict({'conv1_leaky_1': [5, 8, 4, 4, 1]}),
@@ -192,9 +192,9 @@ def GET_CONVLSTM_ED_SEVIR_FUSED(batch_size=-1):
             OrderedDict({'conv3_leaky_1': [192, 192, 3, 2, 1]}),
         ],
         [
-            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=8, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
         ]
     ]
     convlstm_forecaster_params = [
@@ -204,13 +204,13 @@ def GET_CONVLSTM_ED_SEVIR_FUSED(batch_size=-1):
             OrderedDict({
                 'deconv3_leaky_1': [64, 8, 6, 4, 1],
                 'conv3_leaky_2': [8, 8, 3, 1, 1],
-                'conv3_3': [8, 5, 1, 1, 0]
+                'conv3_3': [8, 1, 1, 1, 0] # pred of shape [B, T, 1, H, W] with vil only
             }),
         ],
         [
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 8, 8), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 16, 16), kernel_size=3, stride=1, padding=1),
-            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 32, 32), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 12, 12), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=192, num_filter=192, b_h_w=(batch_size, 24, 24), kernel_size=3, stride=1, padding=1),
+            ConvLSTM(input_channel=64, num_filter=64, b_h_w=(batch_size, 48, 48), kernel_size=3, stride=1, padding=1),
         ]
     ]
     encoder = Encoder(convlstm_encoder_params[0], convlstm_encoder_params[1])
@@ -402,14 +402,14 @@ SIMVP_SEVIR_NOCO = {
     }
 }
 
-## SimVP v1 for SEVIR_CO (NTCHW: 4, 25, 5, 128, 128)
+## SimVP v1 for SEVIR_CO (NTCHW: 4, 25, 5, 192, 192)
 SIMVP_SEVIR_CO_SIGMOID = {
     'model': 'simvp',
     'pre': None,
     'post': None,
     'param': {     
-        'shape_in': (13, 5, 128, 128),
-        'shape_out': (12, 5, 128, 128),
+        'shape_in': (13, 5, 192, 192),
+        'shape_out': (12, 5, 192, 192),
         'hid_S': 16,
         'hid_T': 256,
         'N_S': 4,
@@ -424,8 +424,8 @@ SIMVP_SEVIR_CO = {
     'pre': None,
     'post': None,    
     'param': {  
-        'shape_in': (13, 5, 128, 128),
-        'shape_out': (12, 5, 128, 128),
+        'shape_in': (13, 5, 192, 192),
+        'shape_out': (12, 5, 192, 192),
         'hid_S': 16,
         'hid_T': 256,
         'N_S': 4,
@@ -435,14 +435,14 @@ SIMVP_SEVIR_CO = {
     }
 }
 
-## SimVP v1 for SEVIR_FUSED (NTCHW: 4, 25, 5, 128, 128)
+## SimVP v1 for SEVIR_FUSED (NTCHW: 4, 25, 5, 192, 192)
 SIMVP_SEVIR_FUSED_SIGMOID = {
     'model': 'simvp',
     'pre': None,
     'post': None,
     'param': {     
-        'shape_in': (13, 5, 128, 128),
-        'shape_out': (12, 5, 128, 128),
+        'shape_in': (13, 5, 192, 192),
+        'shape_out': (12, 5, 192, 192),
         'hid_S': 16,
         'hid_T': 256,
         'N_S': 4,
@@ -457,8 +457,8 @@ SIMVP_SEVIR_FUSED = {
     'pre': None,
     'post': None,    
     'param': {  
-        'shape_in': (13, 5, 128, 128),
-        'shape_out': (12, 5, 128, 128),
+        'shape_in': (13, 5, 192, 192),
+        'shape_out': (12, 5, 192, 192),
         'hid_S': 16,
         'hid_T': 256,
         'N_S': 4,
